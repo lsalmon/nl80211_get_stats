@@ -24,6 +24,29 @@ struct nla_policy rate_policy[NL80211_RATE_INFO_MAX + 1] = {
 //  [NL80211_RATE_INFO_HE_NSS] = { .type = NLA_U8 },
 };
 
+struct link_result {
+        uint8_t bssid[8];
+        bool link_found;
+        bool anything_found;
+};
+
+
+void mac_addr_n2a(char *mac_addr, const unsigned char *arg) {
+	int i, l;
+
+	l = 0;
+	for (i = 0; i < ETH_ALEN ; i++) {
+		if (i == 0) {
+			sprintf(mac_addr+l, "%02x", arg[i]);
+			l += 2;
+		} else {
+			sprintf(mac_addr+l, ":%02x", arg[i]);
+			l += 3;
+		}
+	}
+}
+
+
 void * nl80211_cmd(Netlink *nl, struct nl_msg *msg, int flags, uint8_t cmd) {
   return genlmsg_put(msg, 0, 0, nl->id, 0, flags, cmd, 0);
 }
@@ -226,6 +249,81 @@ int getWifiInfo_callback(struct nl_msg *msg, void *arg) {
   return NL_SKIP;
 }
 
+int bss_info_handler(struct nl_msg *msg, void *arg) {
+	struct nlattr *tb[NL80211_ATTR_MAX + 1];
+	struct genlmsghdr *gnlh = nlmsg_data(nlmsg_hdr(msg));
+	struct nlattr *bss[NL80211_BSS_MAX + 1];
+	static struct nla_policy bss_policy[NL80211_BSS_MAX + 1] = {
+		[NL80211_BSS_TSF] = { .type = NLA_U64 },
+		[NL80211_BSS_FREQUENCY] = { .type = NLA_U32 },
+		[NL80211_BSS_BSSID] = { },
+		[NL80211_BSS_BEACON_INTERVAL] = { .type = NLA_U16 },
+		[NL80211_BSS_CAPABILITY] = { .type = NLA_U16 },
+		[NL80211_BSS_INFORMATION_ELEMENTS] = { },
+		[NL80211_BSS_SIGNAL_MBM] = { .type = NLA_U32 },
+		[NL80211_BSS_SIGNAL_UNSPEC] = { .type = NLA_U8 },
+		[NL80211_BSS_STATUS] = { .type = NLA_U32 },
+	};
+	struct link_result *result = arg;
+	char mac_addr[20];
+
+	nla_parse(tb, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0),
+		  genlmsg_attrlen(gnlh, 0), NULL);
+
+	if (!tb[NL80211_ATTR_BSS]) {
+		printf("bss info missing!\n");
+		return NL_SKIP;
+	}
+	if (nla_parse_nested(bss, NL80211_BSS_MAX,
+			     tb[NL80211_ATTR_BSS],
+			     bss_policy)) {
+		printf("failed to parse nested attributes!\n");
+		return NL_SKIP;
+	}
+
+	if (!bss[NL80211_BSS_BSSID])
+		return NL_SKIP;
+
+	if (!bss[NL80211_BSS_STATUS])
+		return NL_SKIP;
+
+	mac_addr_n2a(mac_addr, nla_data(bss[NL80211_BSS_BSSID]));
+
+	switch (nla_get_u32(bss[NL80211_BSS_STATUS])) {
+	case NL80211_BSS_STATUS_ASSOCIATED:
+		printf("Connected to %s \n", mac_addr);
+		break;
+	case NL80211_BSS_STATUS_AUTHENTICATED:
+		printf("Authenticated with %s \n", mac_addr);
+		return NL_SKIP;
+	case NL80211_BSS_STATUS_IBSS_JOINED:
+		printf("Joined IBSS %s \n", mac_addr);
+		break;
+	default:
+		return NL_SKIP;
+	}
+
+	result->anything_found = true;
+
+/*
+	if (bss[NL80211_BSS_INFORMATION_ELEMENTS])
+		print_ies(nla_data(bss[NL80211_BSS_INFORMATION_ELEMENTS]),
+			  nla_len(bss[NL80211_BSS_INFORMATION_ELEMENTS]),
+			  false, PRINT_LINK);
+*/
+
+	if (bss[NL80211_BSS_FREQUENCY])
+		printf("\tfreq: %d\n",
+			nla_get_u32(bss[NL80211_BSS_FREQUENCY]));
+
+	if (nla_get_u32(bss[NL80211_BSS_STATUS]) != NL80211_BSS_STATUS_ASSOCIATED)
+		return NL_SKIP;
+
+	/* only in the assoc case do we want more info from station get */
+	result->link_found = true;
+	memcpy(result->bssid, nla_data(bss[NL80211_BSS_BSSID]), 6);
+	return NL_SKIP;
+}
 
 int protocol_feature_handler(struct nl_msg *msg, void *arg) {
 printf("protocol_feature_handler\n");
@@ -399,6 +497,27 @@ printf("get wiphy :\n");
   nl_send_auto(nl->socket, msg3); 
   while (nl->result3 > 0) { nl_recvmsgs(nl->socket, nl->cb3); }
   nlmsg_free(msg3);
+
+
+  struct nl_msg *msg4;
+
+  msg4 = nlmsg_alloc();
+
+  if (!msg4) {
+    printf("Failed to allocate netlink message");
+    return -1;
+  }
+  
+  if(!nl80211_cmd(nl, msg4, NLM_F_DUMP, NL80211_CMD_GET_SCAN)) {
+    nlmsg_free(msg4);
+    return -1;
+  } 
+
+  struct link_result bss_info;
+
+  nla_put_u32(msg4, NL80211_ATTR_IFINDEX, w->ifindex); 
+
+  send_and_recv_msgs(nl, msg4, bss_info_handler, &bss_info);
 
   return 0;
 }

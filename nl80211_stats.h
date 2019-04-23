@@ -2,6 +2,7 @@
 #include <signal.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <errno.h>              
 #include <linux/netlink.h>    //lots of netlink functions
@@ -9,6 +10,7 @@
 #include <netlink/genl/family.h>
 #include <netlink/genl/ctrl.h>  //genl_ctrl_resolve
 #include <linux/nl80211.h>      //NL80211 definitions
+#include <linux/if_ether.h>  // ETH_ALEN def
 
 
 #define IEEE80211_HT_MCS_MASK_LEN  10
@@ -235,6 +237,7 @@ static int error_handler(struct sockaddr_nl *nla, struct nlmsgerr *err, void *ar
 static int finish_handler(struct nl_msg *msg, void *arg);
 static int ack_handler(struct nl_msg *msg, void *arg);
 
+int bss_info_handler(struct nl_msg *msg, void *arg);
 int protocol_feature_handler(struct nl_msg *msg, void *arg);
 int getWifiIndex_callback(struct nl_msg *msg, void *arg);
 int getWifiInfo_callback(struct nl_msg *msg, void *arg);
