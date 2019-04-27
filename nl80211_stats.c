@@ -116,31 +116,14 @@ int initNl80211(Netlink* nl, Wifi* w) {
     return -ENOENT;
   }
 
+  nl->nl_cb = nl_cb_alloc(NL_CB_DEFAULT);
   if (nl->nl_cb == NULL) {
      printf("Failed to allocate netlink callback.\n"); 
      nl_close(nl->socket);
      nl_socket_free(nl->socket);
      return ENOMEM;
   }
-
-  nl->cb1 = nl_cb_alloc(NL_CB_DEFAULT);
-  nl->cb2 = nl_cb_alloc(NL_CB_DEFAULT);
-  nl->cb3 = nl_cb_alloc(NL_CB_DEFAULT);
-  nl->nl_cb = nl_cb_alloc(NL_CB_DEFAULT);
-  if ((!nl->cb1) || (!nl->cb2) || (!nl->cb3) || (!nl->nl_cb)) { 
-     printf("Failed to allocate netlink callback.\n"); 
-     nl_close(nl->socket);
-     nl_socket_free(nl->socket);
-     return ENOMEM;
-  }
-
-  nl_cb_set(nl->cb1, NL_CB_VALID , NL_CB_CUSTOM, getWifiIndex_callback, w);
-  nl_cb_set(nl->cb1, NL_CB_FINISH, NL_CB_CUSTOM, finish_handler, &(nl->result1));
-  nl_cb_set(nl->cb2, NL_CB_VALID , NL_CB_CUSTOM, getWifiInfo_callback, w);
-  nl_cb_set(nl->cb2, NL_CB_FINISH, NL_CB_CUSTOM, finish_handler, &(nl->result2));
-  nl_cb_set(nl->cb3, NL_CB_VALID , NL_CB_CUSTOM, getWifiFreq_callback, w);
-  nl_cb_set(nl->cb3, NL_CB_FINISH, NL_CB_CUSTOM, finish_handler, &(nl->result3));
-  
+ 
   return nl->id;
 }
 
@@ -163,7 +146,7 @@ static int ack_handler(struct nl_msg *msg, void *arg) {
   return NL_STOP;
 }
 
-int getWifiIndex_callback(struct nl_msg *msg, void *arg) {
+int get_windex_callback(struct nl_msg *msg, void *arg) {
  
   struct genlmsghdr *gnlh = nlmsg_data(nlmsg_hdr(msg));
 
@@ -178,7 +161,7 @@ int getWifiIndex_callback(struct nl_msg *msg, void *arg) {
             NULL);
 
   if (tb_msg[NL80211_ATTR_IFNAME]) {
-    printf("getWifiIndex_callback - name of itf : %s\n", nla_get_string(tb_msg[NL80211_ATTR_IFNAME]));
+    printf("get_windex_callback - name of itf : %s\n", nla_get_string(tb_msg[NL80211_ATTR_IFNAME]));
     // If interface found doesn't have the correct name, skip
     if(strcmp( ((Wifi*)arg)->ifname, nla_get_string(tb_msg[NL80211_ATTR_IFNAME]) ))
       return NL_SKIP;
@@ -191,7 +174,7 @@ int getWifiIndex_callback(struct nl_msg *msg, void *arg) {
 
 /* Get current frequency */
   if (tb_msg[NL80211_ATTR_WIPHY_FREQ]) {
-    printf("getWifiIndex_callback - freq : %u\n", nla_get_u32(tb_msg[NL80211_ATTR_WIPHY_FREQ]));
+    printf("get_windex_callback - freq : %u\n", nla_get_u32(tb_msg[NL80211_ATTR_WIPHY_FREQ]));
     ((Wifi*)arg)->freq = nla_get_u32(tb_msg[NL80211_ATTR_WIPHY_FREQ]);
   }
 
@@ -199,7 +182,7 @@ int getWifiIndex_callback(struct nl_msg *msg, void *arg) {
 }
 
 
-int getWifiInfo_callback(struct nl_msg *msg, void *arg) {
+int get_winfo_callback(struct nl_msg *msg, void *arg) {
   struct nlattr *tb[NL80211_ATTR_MAX + 1];
   struct genlmsghdr *gnlh = nlmsg_data(nlmsg_hdr(msg));
   struct nlattr *sinfo[NL80211_STA_INFO_MAX + 1];
@@ -228,7 +211,7 @@ int getWifiInfo_callback(struct nl_msg *msg, void *arg) {
     else {
       if (rinfo[NL80211_RATE_INFO_MCS]) {
         ((Wifi*)arg)->mcs = nla_get_u8(rinfo[NL80211_RATE_INFO_MCS]);
-        printf("getWifiInfo_callback - mcs : %u\n", nla_get_u32(rinfo[NL80211_RATE_INFO_MCS]));
+        printf("get_winfo_callback - mcs : %u\n", nla_get_u32(rinfo[NL80211_RATE_INFO_MCS]));
       }
       if (rinfo[NL80211_RATE_INFO_BITRATE32]) {
         ((Wifi*)arg)->txrate = nla_get_u32(rinfo[NL80211_RATE_INFO_BITRATE32]);
@@ -249,7 +232,7 @@ int getWifiInfo_callback(struct nl_msg *msg, void *arg) {
   return NL_SKIP;
 }
 
-int bss_info_handler(struct nl_msg *msg, void *arg) {
+int bss_info_callback(struct nl_msg *msg, void *arg) {
 	struct nlattr *tb[NL80211_ATTR_MAX + 1];
 	struct genlmsghdr *gnlh = nlmsg_data(nlmsg_hdr(msg));
 	struct nlattr *bss[NL80211_BSS_MAX + 1];
@@ -325,8 +308,7 @@ int bss_info_handler(struct nl_msg *msg, void *arg) {
 	return NL_SKIP;
 }
 
-int protocol_feature_handler(struct nl_msg *msg, void *arg) {
-printf("protocol_feature_handler\n");
+int protocol_feature_callback(struct nl_msg *msg, void *arg) {
   unsigned int *feat = arg;
 
   struct nlattr *tb_msg[NL80211_ATTR_MAX + 1];
@@ -342,7 +324,7 @@ printf("protocol_feature_handler\n");
 }
 
 
-unsigned int get_nl80211_protocol_features(Netlink *nl, Wifi* w) {
+unsigned int getNl80211ProtoFeat(Netlink *nl, Wifi* w) {
   unsigned int feat = 0;
   struct nl_msg *msg;
 
@@ -361,13 +343,13 @@ unsigned int get_nl80211_protocol_features(Netlink *nl, Wifi* w) {
 
   nla_put_u32(msg, NL80211_ATTR_IFINDEX, w->ifindex); 
 
-  send_and_recv_msgs(nl, msg, protocol_feature_handler, &feat);
+  send_and_recv_msgs(nl, msg, protocol_feature_callback, &feat);
 
   return feat;
 }
 
 
-int getWifiFreq_callback(struct nl_msg *msg, void *arg) {
+int get_wfreq_callback(struct nl_msg *msg, void *arg) {
   struct nlattr *tb_msg[NL80211_ATTR_MAX + 1];
   struct nlattr *tb_band[NL80211_BAND_ATTR_MAX + 1];
   struct genlmsghdr *gnlh = nlmsg_data(nlmsg_hdr(msg));
@@ -417,107 +399,102 @@ int getWifiFreq_callback(struct nl_msg *msg, void *arg) {
   return NL_SKIP;
 }
 
-int getWifiInterface(Netlink* nl, Wifi* w) {
-  nl->result1 = 1;
-
+int getNl80211Interface(Netlink* nl, Wifi* w) {
 /* Get itf ID */
     
-  struct nl_msg* msg1 = nlmsg_alloc();
-  if (!msg1) {
+  struct nl_msg* msg_itf = nlmsg_alloc();
+  if (!msg_itf) {
     printf("Failed to allocate netlink message.\n");
     return -1;
   }
  
-  if(!nl80211_cmd(nl, msg1, NLM_F_DUMP, NL80211_CMD_GET_INTERFACE)) {
-    nlmsg_free(msg1);
+  if(!nl80211_cmd(nl, msg_itf, NLM_F_DUMP, NL80211_CMD_GET_INTERFACE)) {
+    nlmsg_free(msg_itf);
     printf("Init of message for netlink cmd NL80211_CMD_GET_INTERFACE failed");
     return -1;
   } 
 
-  nl_send_auto(nl->socket, msg1);
-  
-  while (nl->result1 > 0) { nl_recvmsgs(nl->socket, nl->cb1); }
-  nlmsg_free(msg1);
+  send_and_recv_msgs(nl, msg_itf, get_windex_callback, w);
 
   if (w->ifindex < 0) { return -1; }
 
   return 0;
 }
 
-int getWifiStatus(Netlink* nl, Wifi* w) {
-  nl->result2 = 1;
-  nl->result3 = 1;
-
+int getNl80211Status(Netlink* nl, Wifi* w) {
 /* Get station info */
 
-  struct nl_msg* msg2 = nlmsg_alloc();
+  struct nl_msg* msg_sta_info = nlmsg_alloc();
 
-  if (!msg2) {
+  if (!msg_sta_info) {
     printf("Failed to allocate netlink message.\n");
     return -1;
   }
   
-  if(!nl80211_cmd(nl, msg2, NLM_F_DUMP, NL80211_CMD_GET_STATION)) { 
-    nlmsg_free(msg2);
+  if(!nl80211_cmd(nl, msg_sta_info, NLM_F_DUMP, NL80211_CMD_GET_STATION)) { 
+    nlmsg_free(msg_sta_info);
     printf("Init of message for netlink cmd NL80211_CMD_GET_STATION failed");
     return -1;
   } 
               
-  nla_put_u32(msg2, NL80211_ATTR_IFINDEX, w->ifindex); 
-  nl_send_auto(nl->socket, msg2); 
-  while (nl->result2 > 0) { nl_recvmsgs(nl->socket, nl->cb2); }
-  nlmsg_free(msg2);
+  nla_put_u32(msg_sta_info, NL80211_ATTR_IFINDEX, w->ifindex); 
 
-/* Get protocol and freq/rate info */
+  send_and_recv_msgs(nl, msg_sta_info, get_winfo_callback, w);
+
+
+/* Get protocol features */
    
   unsigned int feat;
   int flags = 0;
 
-  feat = get_nl80211_protocol_features(nl, w);
-  printf("get_nl80211_protocol_features: feat %d\n", feat);
+  feat = getNl80211ProtoFeat(nl, w);
+  printf("getNl80211ProtoFeat: feat %d\n", feat);
   if (feat & NL80211_PROTOCOL_FEATURE_SPLIT_WIPHY_DUMP)
     flags = NLM_F_DUMP;
 
 
-  struct nl_msg* msg3 = nlmsg_alloc();
+/* Get freq/rate info */
 
-  if (!msg3) {
+  struct nl_msg* msg_freq_info = nlmsg_alloc();
+
+  if (!msg_freq_info) {
     printf("Failed to allocate netlink message.\n");
     return -1;
   }
   
 printf("get wiphy :\n");
-  if(!nl80211_cmd(nl, msg3, flags, NL80211_CMD_GET_WIPHY) || nla_put_flag(msg3, NL80211_ATTR_SPLIT_WIPHY_DUMP)) {
-    nlmsg_free(msg3);
+  if(!nl80211_cmd(nl, msg_freq_info, flags, NL80211_CMD_GET_WIPHY) || nla_put_flag(msg_freq_info, NL80211_ATTR_SPLIT_WIPHY_DUMP)) {
+    nlmsg_free(msg_freq_info);
     printf("Init of message for netlink cmd NL80211_CMD_GET_WIPHY failed");
     return -1;
   } 
               
-  nla_put_u32(msg3, NL80211_ATTR_IFINDEX, w->ifindex); 
-  nl_send_auto(nl->socket, msg3); 
-  while (nl->result3 > 0) { nl_recvmsgs(nl->socket, nl->cb3); }
-  nlmsg_free(msg3);
+  nla_put_u32(msg_freq_info, NL80211_ATTR_IFINDEX, w->ifindex); 
+
+  send_and_recv_msgs(nl, msg_freq_info, get_wfreq_callback, w);
 
 
-  struct nl_msg *msg4;
+/* Get BSS info */
 
-  msg4 = nlmsg_alloc();
+  struct nl_msg *msg_bss_info;
 
-  if (!msg4) {
+  msg_bss_info = nlmsg_alloc();
+
+  if (!msg_bss_info) {
     printf("Failed to allocate netlink message");
     return -1;
   }
   
-  if(!nl80211_cmd(nl, msg4, NLM_F_DUMP, NL80211_CMD_GET_SCAN)) {
-    nlmsg_free(msg4);
+  if(!nl80211_cmd(nl, msg_bss_info, NLM_F_DUMP, NL80211_CMD_GET_SCAN)) {
+    nlmsg_free(msg_bss_info);
     return -1;
   } 
 
   struct link_result bss_info;
 
-  nla_put_u32(msg4, NL80211_ATTR_IFINDEX, w->ifindex); 
+  nla_put_u32(msg_bss_info, NL80211_ATTR_IFINDEX, w->ifindex); 
 
-  send_and_recv_msgs(nl, msg4, bss_info_handler, &bss_info);
+  send_and_recv_msgs(nl, msg_bss_info, bss_info_callback, &bss_info);
 
   return 0;
 }
@@ -540,11 +517,11 @@ int getNl80211Info(struct station_info *sta_info, const char *itf_name) {
     return -1;
   }
 
-  if(getWifiInterface(&nl, &w) < 0) {
+  if(getNl80211Interface(&nl, &w) < 0) {
     printf("Error getting info on interface");
     return -1;
   }  
-  if(getWifiStatus(&nl, &w) < 0) {
+  if(getNl80211Status(&nl, &w) < 0) {
     printf("Error getting info on attributes");
     return -1;
   } 
@@ -596,9 +573,6 @@ int getNl80211Info(struct station_info *sta_info, const char *itf_name) {
 | freq: %d | MCS: %d | NSS: %d | VHT_CAP: %d | HT_CAP: %d\n",
            w.ifname, w.txrate, w.txfailed, w.freq, w.mcs, w.nss, w.vht_cap, w.ht_cap);
 
-  nl_cb_put(nl.cb1);
-  nl_cb_put(nl.cb2);
-  nl_cb_put(nl.cb3);
   nl_cb_put(nl.nl_cb);
   nl_close(nl.socket);
   nl_socket_free(nl.socket);
