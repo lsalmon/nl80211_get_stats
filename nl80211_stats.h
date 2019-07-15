@@ -80,6 +80,12 @@ struct station_info {
   int ErrorsSent;
 };
 
+struct bss_info {
+        uint8_t bssid[8];
+        bool link_found;
+        bool anything_found;
+};
+
 int initNl80211(Netlink* nl, Wifi* w);
 static int send_and_recv(Netlink *drv,
                           struct nl_sock *nl_socket, struct nl_msg *msg,
