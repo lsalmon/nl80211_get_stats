@@ -156,14 +156,16 @@ int get_windex_callback(struct nl_msg *msg, void *arg) {
             NULL);
 
   if (tb_msg[NL80211_ATTR_IFNAME]) {
-    printf("get_windex_callback - name of itf : %s\n", nla_get_string(tb_msg[NL80211_ATTR_IFNAME]));
     // If interface found doesn't have the correct name, skip
-    if(strcmp( ((Wifi*)arg)->ifname, nla_get_string(tb_msg[NL80211_ATTR_IFNAME]) ))
+    if (strcmp( ((Wifi*)arg)->ifname, nla_get_string(tb_msg[NL80211_ATTR_IFNAME]) ))
       return NL_SKIP;
+    else
+      printf("get_windex_callback - name of itf : %s\n", nla_get_string(tb_msg[NL80211_ATTR_IFNAME]));
   }
 
 /* Get interface index */
   if (tb_msg[NL80211_ATTR_IFINDEX]) {
+    printf("get_windex_callback - interface index : %u\n", nla_get_u32(tb_msg[NL80211_ATTR_IFINDEX]));
     ((Wifi*)arg)->ifindex = nla_get_u32(tb_msg[NL80211_ATTR_IFINDEX]);
   }
 
@@ -191,19 +193,19 @@ int get_winfo_callback(struct nl_msg *msg, void *arg) {
             NULL);
   
   if (!tb[NL80211_ATTR_STA_INFO]) {
-    printf("Station stats missing"); return NL_SKIP;
+    printf("Station stats missing\n"); return NL_SKIP;
   }
 
   if (nla_parse_nested(sinfo, NL80211_STA_INFO_MAX,
                        tb[NL80211_ATTR_STA_INFO], stats_policy)) {
-    printf("Failed to parse nested attributes for station"); return NL_SKIP;
+    printf("Failed to parse nested attributes for station\n"); return NL_SKIP;
   }
 
-  if (sinfo[NL80211_STA_INFO_TX_BITRATE]) {  
+  if (sinfo[NL80211_STA_INFO_TX_BITRATE]) { :
     if (nla_parse_nested(rinfo, NL80211_RATE_INFO_MAX,
                          sinfo[NL80211_STA_INFO_TX_BITRATE], rate_policy)) {
-      printf("Failed to parse nested rate attributes for station"); } 
-    else {
+      printf("Failed to parse nested rate attributes for station\n");
+    } else {
       if (rinfo[NL80211_RATE_INFO_MCS]) {
         ((Wifi*)arg)->mcs = nla_get_u8(rinfo[NL80211_RATE_INFO_MCS]);
         printf("get_winfo_callback - mcs : %u\n", nla_get_u32(rinfo[NL80211_RATE_INFO_MCS]));
@@ -292,8 +294,7 @@ int bss_info_callback(struct nl_msg *msg, void *arg) {
 */
 
   if (bss[NL80211_BSS_FREQUENCY])
-    printf("\tfreq: %d\n",
-      nla_get_u32(bss[NL80211_BSS_FREQUENCY]));
+    printf("\tfreq: %d\n", nla_get_u32(bss[NL80211_BSS_FREQUENCY]));
 
   if (nla_get_u32(bss[NL80211_BSS_STATUS]) != NL80211_BSS_STATUS_ASSOCIATED)
     return NL_SKIP;
@@ -325,15 +326,14 @@ unsigned int getNl80211ProtoFeat(Netlink *nl, Wifi* w) {
   unsigned int feat = 0;
   struct nl_msg *msg;
 
-
   msg = nlmsg_alloc();
 
   if (!msg) {
-    printf("Failed to allocate netlink message");
+    printf("Failed to allocate netlink message\n");
     return -1;
   }
   
-  if(!nl80211_cmd(nl, msg, 0, NL80211_CMD_GET_PROTOCOL_FEATURES)) {
+  if (!nl80211_cmd(nl, msg, 0, NL80211_CMD_GET_PROTOCOL_FEATURES)) {
     nlmsg_free(msg);
     return -1;
   } 
@@ -357,7 +357,7 @@ int get_wfreq_callback(struct nl_msg *msg, void *arg) {
   nla_parse(tb_msg, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0), NULL);
 
 /* Get current freq */
-  if(tb_msg[NL80211_ATTR_WIPHY_FREQ])
+  if (tb_msg[NL80211_ATTR_WIPHY_FREQ])
      ((Wifi*)arg)->freq = nla_get_u32(tb_msg[NL80211_ATTR_WIPHY_FREQ]);
 
   if (!tb_msg[NL80211_ATTR_WIPHY_BANDS])
@@ -374,21 +374,22 @@ int get_wfreq_callback(struct nl_msg *msg, void *arg) {
     nla_parse(tb_band, NL80211_BAND_ATTR_MAX, nla_data(nl_band), nla_len(nl_band), NULL);
 
 /* Get results on correct band (2.4 or 5Ghz, check if frequency > 5Ghz) */
-    if( ((Wifi*)arg)->freq > 0 && nl_band->nla_type + 1 == ( ((Wifi*)arg)->freq >= 5000 ? 2 : 1) ) {
+    if ( ((Wifi*)arg)->freq > 0 && nl_band->nla_type + 1 == ( ((Wifi*)arg)->freq >= 5000 ? 2 : 1) ) {
       if (tb_band[NL80211_BAND_ATTR_HT_CAPA] && tb_band[NL80211_BAND_ATTR_HT_MCS_SET]) {
 ((Wifi*)arg)->ht_cap =  nla_get_u16(tb_band[NL80211_BAND_ATTR_HT_CAPA]);
- printf("\tHT CAP %d:\n", ((Wifi*)arg)->ht_cap);
-        if(((Wifi*)arg)->mcs < 0 && nla_len(tb_band[NL80211_BAND_ATTR_HT_MCS_SET]) == 16) 
+        printf("\tHT CAP %d:\n", ((Wifi*)arg)->ht_cap);
+        if(((Wifi*)arg)->mcs < 0 && nla_len(tb_band[NL80211_BAND_ATTR_HT_MCS_SET]) == 16)
           ((Wifi*)arg)->mcs = nla_get_u16(tb_band[NL80211_BAND_ATTR_HT_MCS_SET]);
-      printf("\tMCS HT %d:\n", ((Wifi*)arg)->mcs);
+
+        printf("\tMCS HT %d:\n", ((Wifi*)arg)->mcs);
       }
       if (tb_band[NL80211_BAND_ATTR_VHT_CAPA] && tb_band[NL80211_BAND_ATTR_VHT_MCS_SET]) {
 ((Wifi*)arg)->vht_cap =  nla_get_u16(tb_band[NL80211_BAND_ATTR_VHT_CAPA]);
- printf("\tVHT CAP %d:\n", ((Wifi*)arg)->vht_cap);
-        if(((Wifi*)arg)->mcs < 0) 
+        printf("\tVHT CAP %d:\n", ((Wifi*)arg)->vht_cap);
+        if (((Wifi*)arg)->mcs < 0)
           ((Wifi*)arg)->mcs = nla_get_u16(tb_band[NL80211_BAND_ATTR_VHT_MCS_SET]);
-      printf("\tMCS VHT %d:\n", ((Wifi*)arg)->mcs);
 
+        printf("\tMCS VHT %d:\n", ((Wifi*)arg)->mcs);
       }
     }
   }
@@ -405,9 +406,9 @@ int getNl80211Interface(Netlink* nl, Wifi* w) {
     return -1;
   }
  
-  if(!nl80211_cmd(nl, msg_itf, NLM_F_DUMP, NL80211_CMD_GET_INTERFACE)) {
+  if (!nl80211_cmd(nl, msg_itf, NLM_F_DUMP, NL80211_CMD_GET_INTERFACE)) {
     nlmsg_free(msg_itf);
-    printf("Init of message for netlink cmd NL80211_CMD_GET_INTERFACE failed");
+    printf("Init of message for netlink cmd NL80211_CMD_GET_INTERFACE failed\n");
     return -1;
   } 
 
@@ -430,7 +431,7 @@ int getNl80211Status(Netlink* nl, Wifi* w) {
   
   if(!nl80211_cmd(nl, msg_sta_info, NLM_F_DUMP, NL80211_CMD_GET_STATION)) { 
     nlmsg_free(msg_sta_info);
-    printf("Init of message for netlink cmd NL80211_CMD_GET_STATION failed");
+    printf("Init of message for netlink cmd NL80211_CMD_GET_STATION failed\n");
     return -1;
   } 
               
@@ -459,10 +460,10 @@ int getNl80211Status(Netlink* nl, Wifi* w) {
     return -1;
   }
   
-printf("get wiphy :\n");
-  if(!nl80211_cmd(nl, msg_freq_info, flags, NL80211_CMD_GET_WIPHY) || nla_put_flag(msg_freq_info, NL80211_ATTR_SPLIT_WIPHY_DUMP)) {
+  printf("get wiphy :\n");
+  if (!nl80211_cmd(nl, msg_freq_info, flags, NL80211_CMD_GET_WIPHY) || nla_put_flag(msg_freq_info, NL80211_ATTR_SPLIT_WIPHY_DUMP)) {
     nlmsg_free(msg_freq_info);
-    printf("Init of message for netlink cmd NL80211_CMD_GET_WIPHY failed");
+    printf("Init of message for netlink cmd NL80211_CMD_GET_WIPHY failed\n");
     return -1;
   } 
               
@@ -478,11 +479,11 @@ printf("get wiphy :\n");
   msg_bss_info = nlmsg_alloc();
 
   if (!msg_bss_info) {
-    printf("Failed to allocate netlink message");
+    printf("Failed to allocate netlink message\n");
     return -1;
   }
   
-  if(!nl80211_cmd(nl, msg_bss_info, NLM_F_DUMP, NL80211_CMD_GET_SCAN)) {
+  if (!nl80211_cmd(nl, msg_bss_info, NLM_F_DUMP, NL80211_CMD_GET_SCAN)) {
     nlmsg_free(msg_bss_info);
     return -1;
   } 
@@ -510,16 +511,16 @@ int getNl80211Info(struct station_info *sta_info, const char *itf_name) {
 
   nl.id = initNl80211(&nl, &w);
   if (nl.id < 0) {
-    printf("Error initializing netlink 802.11");
+    printf("Error initializing netlink 802.11\n");
     return -1;
   }
 
-  if(getNl80211Interface(&nl, &w) < 0) {
-    printf("Error getting info on interface");
+  if (getNl80211Interface(&nl, &w) < 0) {
+    printf("Error getting info on interface\n");
     return -1;
   }  
-  if(getNl80211Status(&nl, &w) < 0) {
-    printf("Error getting info on attributes");
+  if (getNl80211Status(&nl, &w) < 0) {
+    printf("Error getting info on attributes\n");
     return -1;
   } 
  
@@ -527,7 +528,7 @@ int getNl80211Info(struct station_info *sta_info, const char *itf_name) {
   
   printf("Wifi band: ");
   
-  if(w.freq < 0) {
+  if (w.freq < 0) {
     sta_info->primChannel = w.freq;
     sta_info->band = NET80211_BAND_EMPTY;
     printf("empty ");
@@ -574,13 +575,13 @@ int getNl80211Info(struct station_info *sta_info, const char *itf_name) {
 
   printf("\n");
  
-  if(sta_info->ErrorsSent < 0) sta_info->ErrorsSent = w.txfailed;
+  if (sta_info->ErrorsSent < 0) sta_info->ErrorsSent = w.txfailed;
 
   /* Table for NSS in case of wireless mode N */
-  if(w.nss < 0) {
-    if(w.mcs < 8)
+  if (w.nss < 0) {
+    if (w.mcs < 8)
       w.nss = 1;
-    else if(w.mcs >= 8 && w.mcs < 16)
+    else if (w.mcs >= 8 && w.mcs < 16)
       w.nss = 2;
     else
       w.nss = 3;
@@ -596,8 +597,17 @@ int getNl80211Info(struct station_info *sta_info, const char *itf_name) {
   return 0;
 }
 
-int main() {
+void printHelp(char *name) {
+  printf("Usage : %s <interface name>\n", name);
+  return ;
+}
+
+int main(int argc, char *argv[]) {
   struct station_info *itf_info = malloc(sizeof(struct station_info));
-  getNl80211Info(itf_info, "wlp3s0");
+  if (argc != 2 || (argc > 1 && (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "help") == 0))) {
+    printHelp(argv[0]);
+  } else {
+    getNl80211Info(itf_info, argv[1]);
+  }
   return 0;
 }
