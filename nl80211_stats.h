@@ -72,6 +72,9 @@ typedef enum {
   NET80211_WIRELESS_MODE_AC
 } NET80211_WIRELESS;
 
+int legacy_data_rates_b [] = { 1, 2, 5.5, 11 };
+int legacy_data_rates_ag [] = { 6, 9, 12, 18, 24, 36, 48, 54 };
+
 struct station_info {
   int rate;
   int primChannel;

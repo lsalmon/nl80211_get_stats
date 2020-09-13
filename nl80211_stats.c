@@ -201,7 +201,7 @@ int get_winfo_callback(struct nl_msg *msg, void *arg) {
     printf("Failed to parse nested attributes for station\n"); return NL_SKIP;
   }
 
-  if (sinfo[NL80211_STA_INFO_TX_BITRATE]) { :
+  if (sinfo[NL80211_STA_INFO_TX_BITRATE]) {
     if (nla_parse_nested(rinfo, NL80211_RATE_INFO_MAX,
                          sinfo[NL80211_STA_INFO_TX_BITRATE], rate_policy)) {
       printf("Failed to parse nested rate attributes for station\n");
@@ -257,7 +257,7 @@ int bss_info_callback(struct nl_msg *msg, void *arg) {
   if (nla_parse_nested(bss, NL80211_BSS_MAX,
            tb[NL80211_ATTR_BSS],
            bss_policy)) {
-    printf("failed to parse nested attributes!\n");
+    printf("Failed to parse nested attributes!\n");
     return NL_SKIP;
   }
 
@@ -294,7 +294,7 @@ int bss_info_callback(struct nl_msg *msg, void *arg) {
 */
 
   if (bss[NL80211_BSS_FREQUENCY])
-    printf("\tfreq: %d\n", nla_get_u32(bss[NL80211_BSS_FREQUENCY]));
+    printf("\tFreq: %d\n", nla_get_u32(bss[NL80211_BSS_FREQUENCY]));
 
   if (nla_get_u32(bss[NL80211_BSS_STATUS]) != NL80211_BSS_STATUS_ASSOCIATED)
     return NL_SKIP;
@@ -316,7 +316,7 @@ int protocol_feature_callback(struct nl_msg *msg, void *arg) {
 
   if (tb_msg[NL80211_ATTR_PROTOCOL_FEATURES]) {
     *feat = nla_get_u32(tb_msg[NL80211_ATTR_PROTOCOL_FEATURES]);
-    printf("protocol_callback feat : %u\n", *feat);
+    printf("Protocol_callback feat : %u\n", *feat);
   }
   return NL_SKIP;
 }
@@ -460,7 +460,7 @@ int getNl80211Status(Netlink* nl, Wifi* w) {
     return -1;
   }
   
-  printf("get wiphy :\n");
+  printf("Get wiphy :\n");
   if (!nl80211_cmd(nl, msg_freq_info, flags, NL80211_CMD_GET_WIPHY) || nla_put_flag(msg_freq_info, NL80211_ATTR_SPLIT_WIPHY_DUMP)) {
     nlmsg_free(msg_freq_info);
     printf("Init of message for netlink cmd NL80211_CMD_GET_WIPHY failed\n");
@@ -548,6 +548,9 @@ int getNl80211Info(struct station_info *sta_info, const char *itf_name) {
 
  printf("| mode: ");
 
+/* 2.4GHz : b, g, n */
+/* 5GHz : a, ac, n */
+
  if (sta_info->band == NET80211_BAND_5GHZ) {
     if (w.vht_cap) {
       sta_info->l802_11Modes = NET80211_WIRELESS_MODE_AC;
@@ -568,8 +571,20 @@ int getNl80211Info(struct station_info *sta_info, const char *itf_name) {
       printf("N ");
     }
     else {
-      sta_info->l802_11Modes = NET80211_WIRELESS_MODE_G;
-      printf("G ");
+      bool b_mode = false;
+      for (int i = 0; i < (sizeof(legacy_data_rates_b)/sizeof(legacy_data_rates_b[0])); i++) {
+        if (legacy_data_rates_b[i] == w.txrate) {
+          b_mode = true;
+        }
+      }
+      if (b_mode) {
+        sta_info->l802_11Modes = NET80211_WIRELESS_MODE_B;
+        printf("B ");
+      }
+      else {
+        sta_info->l802_11Modes = NET80211_WIRELESS_MODE_G;
+        printf("G ");
+      }
     }
   }
 
@@ -609,5 +624,8 @@ int main(int argc, char *argv[]) {
   } else {
     getNl80211Info(itf_info, argv[1]);
   }
+
+  free(itf_info);
+
   return 0;
 }
