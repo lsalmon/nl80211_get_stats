@@ -573,8 +573,9 @@ int getNl80211Info(struct station_info *sta_info, const char *itf_name) {
     else {
       bool b_mode = false;
       for (int i = 0; i < (sizeof(legacy_data_rates_b)/sizeof(legacy_data_rates_b[0])); i++) {
-        if (legacy_data_rates_b[i] == w.txrate) {
+        if (legacy_data_rates_b[i] == (float)w.txrate/10) {
           b_mode = true;
+	  break;
         }
       }
       if (b_mode) {
@@ -602,9 +603,9 @@ int getNl80211Info(struct station_info *sta_info, const char *itf_name) {
       w.nss = 3;
   }
 
-  printf("Interface: %s | txrate: %d MBit/s | txfailed: %d \
+  printf("Interface: %s | txrate: %.1f MBit/s | txfailed: %d \
 | freq: %d | MCS: %d | NSS: %d | VHT_CAP: %d | HT_CAP: %d\n",
-           w.ifname, w.txrate, w.txfailed, w.freq, w.mcs, w.nss, w.vht_cap, w.ht_cap);
+           w.ifname, (float)w.txrate/10, w.txfailed, w.freq, w.mcs, w.nss, w.vht_cap, w.ht_cap);
 
   nl_cb_put(nl.nl_cb);
   nl_close(nl.socket);

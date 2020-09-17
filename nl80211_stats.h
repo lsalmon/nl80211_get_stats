@@ -16,29 +16,6 @@
 #define IEEE80211_HT_MCS_MASK_LEN  10
 #define nl_handle nl_sock
 
-
-struct ieee80211_vht_mcs_info {
-        __le16 rx_mcs_map;
-        __le16 rx_highest;
-        __le16 tx_mcs_map;
-        __le16 tx_highest;
-} __attribute__((packed));
-
-
-struct ieee80211_vht_cap {
-        __le32 vht_cap_info;
-        struct ieee80211_vht_mcs_info supp_mcs;
-} __attribute__((packed));
-
-
-struct ieee80211_mcs_info {
-        uint8_t rx_mask[IEEE80211_HT_MCS_MASK_LEN];
-        __le16 rx_highest;
-        uint8_t tx_params;
-        uint8_t reserved[3];
-} __attribute__((packed));
-
-
 typedef struct {
   int id;
   struct nl_sock* socket;
@@ -72,8 +49,8 @@ typedef enum {
   NET80211_WIRELESS_MODE_AC
 } NET80211_WIRELESS;
 
-int legacy_data_rates_b [] = { 1, 2, 5.5, 11 };
-int legacy_data_rates_ag [] = { 6, 9, 12, 18, 24, 36, 48, 54 };
+float legacy_data_rates_b [] = { 1, 2, 5.5, 11 };
+float legacy_data_rates_ag [] = { 6, 9, 12, 18, 24, 36, 48, 54 };
 
 struct station_info {
   int rate;

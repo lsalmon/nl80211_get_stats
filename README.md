@@ -7,5 +7,5 @@ Inspired from :
 - https://netwisdom.cs.memphis.edu/gitlab/nmgordon/mininet-wifi/
 - A few other open source projects
 
-Output sample (interface name is hardcoded in nl80211_stats.c:main) : 
- Interface: wlp3s0 | txrate: 722 MBit/s | txfailed: 0 | freq: 2412 | MCS: 7 | NSS: 1 | VHT_CAP: 0 | HT_CAP: 4462
+Output sample : 
+ Interface: wlp3s0 | txrate: 72.2 MBit/s | txfailed: 0 | freq: 2412 | MCS: 7 | NSS: 1 | VHT_CAP: 0 | HT_CAP: 4462
